@@ -1,0 +1,11 @@
+torch>=2.0
+datasets
+tokenizers
+transformers
+bitsandbytes
+faiss-cpu
+scikit-learn
+gradio
+pyyaml
+rouge-score
+bert-score
