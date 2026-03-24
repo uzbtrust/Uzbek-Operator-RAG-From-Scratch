@@ -5,43 +5,41 @@ import torch.nn as nn
 
 class MultiHeadAttention(nn.Module):
 
-    def __init__(self, hidden_size, num_heads, dropout=0.1):
+    def __init__(self, d_model, n_heads, dropout=0.1):
         super().__init__()
-        assert hidden_size % num_heads == 0
+        assert d_model % n_heads == 0
 
-        self.hidden_size = hidden_size
-        self.num_heads = num_heads
-        self.head_dim = hidden_size // num_heads
+        self.d_model = d_model
+        self.n_heads = n_heads
+        self.d_head = d_model // n_heads
+        self.scale = math.sqrt(self.d_head)
 
-        self.q_proj = nn.Linear(hidden_size, hidden_size)
-        self.k_proj = nn.Linear(hidden_size, hidden_size)
-        self.v_proj = nn.Linear(hidden_size, hidden_size)
-        self.out_proj = nn.Linear(hidden_size, hidden_size)
+        self.Wq = nn.Linear(d_model, d_model)
+        self.Wk = nn.Linear(d_model, d_model)
+        self.Wv = nn.Linear(d_model, d_model)
+        self.Wo = nn.Linear(d_model, d_model)
 
-        self.attn_dropout = nn.Dropout(dropout)
-        self.resid_dropout = nn.Dropout(dropout)
-
-        self.scale = math.sqrt(self.head_dim)
+        self.attn_drop = nn.Dropout(dropout)
+        self.out_drop = nn.Dropout(dropout)
 
     def forward(self, x, mask=None):
-        batch, seq_len, _ = x.shape
+        B, T, _ = x.shape
 
-        q = self.q_proj(x).view(batch, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
-        k = self.k_proj(x).view(batch, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
-        v = self.v_proj(x).view(batch, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+        q = self.Wq(x).view(B, T, self.n_heads, self.d_head).transpose(1, 2)
+        k = self.Wk(x).view(B, T, self.n_heads, self.d_head).transpose(1, 2)
+        v = self.Wv(x).view(B, T, self.n_heads, self.d_head).transpose(1, 2)
 
-        scores = torch.matmul(q, k.transpose(-2, -1)) / self.scale
+        attn = torch.matmul(q, k.transpose(-2, -1)) / self.scale
 
         if mask is not None:
-            scores = scores.masked_fill(mask.unsqueeze(1).unsqueeze(2) == 0, float("-inf"))
+            attn = attn.masked_fill(mask.unsqueeze(1).unsqueeze(2) == 0, float("-inf"))
 
-        weights = torch.softmax(scores, dim=-1)
-        weights = self.attn_dropout(weights)
+        attn = torch.softmax(attn, dim=-1)
+        attn = self.attn_drop(attn)
 
-        context = torch.matmul(weights, v)
-        context = context.transpose(1, 2).contiguous().view(batch, seq_len, self.hidden_size)
-
-        out = self.out_proj(context)
-        out = self.resid_dropout(out)
+        out = torch.matmul(attn, v)
+        out = out.transpose(1, 2).contiguous().view(B, T, self.d_model)
+        out = self.Wo(out)
+        out = self.out_drop(out)
 
         return out

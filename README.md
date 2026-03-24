@@ -1,24 +1,31 @@
-# RAG Operator Chatbot
+# Uzbek-Operator-RAG-From-Scratch
 
-A Retrieval-Augmented Generation system built from scratch for an operator chatbot. Answers questions based on structured business data (contacts, hours, addresses, etc.).
+Operator chatbot uchun noldan yozilgan RAG (Retrieval-Augmented Generation) tizimi. .txt fayldagi biznes ma'lumotlari asosida savollarga javob beradi.
 
-## Architecture
+## Arxitektura
 
-- Custom BERT-style Transformer Encoder (~50M params)
-- BPE tokenizer trained from scratch (vocab: 16K)
-- Hybrid retrieval: TF-IDF + dense embeddings with score fusion
-- Generation: Qwen2.5-7B-Instruct (8-bit quantized)
-- Confidence-based fallback for unknown questions
+- BERT-style Transformer Encoder (~50M parametr, noldan yozilgan)
+- BPE tokenizer (16K vocab, noldan o'qitilgan)
+- Gibrid retrieval: TF-IDF + dense embedding + score fusion
+- Generator: Qwen2.5-7B-Instruct (8-bit kvantizatsiya)
+- Confidence-based fallback (javob topilmasa aytadi)
 
-## Setup
+## O'rnatish
 
 ```bash
+# venv yaratish va kutubxonalarni o'rnatish
+chmod +x setup.sh
+./setup.sh
+
+# yoki qo'lda
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Pipeline
+## Ishlatish
 
-### Phase 1 — Data
+### Phase 1 — Ma'lumotlar
 
 ```bash
 python data/download_corpus.py --max-docs 100000
@@ -29,11 +36,11 @@ python data/synthetic_qa_generator.py
 
 ### Phase 2 — Model
 
-The transformer encoder is in `model/` with these components:
+`model/` papkasida transformer encoder:
 - `attention.py` — Multi-head self-attention
-- `transformer.py` — Full encoder with learned positional embeddings
-- `mlm_head.py` — Masked language modeling head
-- `pooling.py` — Mean/CLS pooling for sentence embeddings
+- `transformer.py` — Encoder (8 layer, 512 hidden, 8 head)
+- `mlm_head.py` — Masked language modeling
+- `pooling.py` — Mean/CLS pooling
 
 ### Phase 3 — Pre-training
 
@@ -41,22 +48,20 @@ The transformer encoder is in `model/` with these components:
 python training/pretrain.py --shard-id 0
 ```
 
-### Phase 4 — Fine-tuning
+### Phase 4 — Fine-tuning (SimCSE)
 
 ```bash
 python training/finetune_simcse.py
 ```
 
-### Phase 5 — RAG
+### Phase 5 — RAG Pipeline
 
 ```bash
-python ui/app.py --knowledge your_data.txt
+python ui/app.py --knowledge data.txt
 ```
 
-## No external RAG frameworks
+## Qoidalar
 
-Everything is implemented from scratch — no LangChain, no LlamaIndex.
-
-## Hardware
-
-Designed for Kaggle T4 x2 (2x16GB VRAM). Supports gradient checkpointing and mixed precision.
+- LangChain, LlamaIndex ISHLATILMAGAN
+- Barcha asosiy komponentlar noldan yozilgan
+- Kaggle T4 x2 (2x16GB VRAM) uchun optimizatsiya qilingan

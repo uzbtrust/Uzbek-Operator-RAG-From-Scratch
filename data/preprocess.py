@@ -1,96 +1,86 @@
 import argparse
 import glob
-import logging
 import os
 import random
 import re
 import yaml
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-log = logging.getLogger(__name__)
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
+logger = logging.getLogger(__name__)
 
 
-def load_config(path):
+def get_config(path="configs/config.yaml"):
     with open(path) as f:
         return yaml.safe_load(f)
 
 
-def clean_text(text):
+def clean(text):
     text = re.sub(r"\s+", " ", text)
     text = re.sub(r"[^\x00-\x7F]+", "", text)
-    text = text.strip()
-    return text
+    return text.strip()
 
 
-def split_into_chunks(text, max_len=1000):
-    sentences = re.split(r"(?<=[.!?])\s+", text)
+def chunkify(text, max_chars=1000):
+    parts = re.split(r"(?<=[.!?])\s+", text)
+    result = []
+    buf = []
+    buf_len = 0
+
+    for p in parts:
+        if buf_len + len(p) > max_chars and buf:
+            result.append(" ".join(buf))
+            buf = []
+            buf_len = 0
+        buf.append(p)
+        buf_len += len(p)
+
+    if buf:
+        result.append(" ".join(buf))
+    return result
+
+
+def preprocess(in_dir, out_dir, num_shards=3):
+    os.makedirs(out_dir, exist_ok=True)
+
+    files = sorted(glob.glob(os.path.join(in_dir, "*.txt")))
+    logger.info(f"{len(files)} ta fayl topildi")
+
     chunks = []
-    current = []
-    current_len = 0
+    for fp in files:
+        logger.info(f"o'qilmoqda: {fp}")
+        with open(fp, "r", encoding="utf-8") as f:
+            raw = f.read()
 
-    for sent in sentences:
-        if current_len + len(sent) > max_len and current:
-            chunks.append(" ".join(current))
-            current = []
-            current_len = 0
-        current.append(sent)
-        current_len += len(sent)
+        for doc in raw.split("\n\n"):
+            doc = clean(doc)
+            if len(doc) < 50:
+                continue
+            chunks.extend(chunkify(doc))
 
-    if current:
-        chunks.append(" ".join(current))
+        logger.info(f"jami chunk: {len(chunks)}")
 
-    return chunks
+    random.shuffle(chunks)
 
-
-def process_raw_files(input_dir, output_dir, num_shards=3):
-    os.makedirs(output_dir, exist_ok=True)
-
-    raw_files = sorted(glob.glob(os.path.join(input_dir, "*.txt")))
-    log.info(f"Found {len(raw_files)} raw files")
-
-    all_chunks = []
-
-    for filepath in raw_files:
-        log.info(f"Processing {filepath}")
-        with open(filepath, "r", encoding="utf-8") as f:
-            for doc in f.read().split("\n\n"):
-                doc = clean_text(doc)
-                if len(doc) < 50:
-                    continue
-                chunks = split_into_chunks(doc)
-                all_chunks.extend(chunks)
-
-        log.info(f"Total chunks so far: {len(all_chunks)}")
-
-    log.info(f"Shuffling {len(all_chunks)} chunks...")
-    random.shuffle(all_chunks)
-
-    shard_size = len(all_chunks) // num_shards
+    per_shard = len(chunks) // num_shards
     for i in range(num_shards):
-        start = i * shard_size
-        end = start + shard_size if i < num_shards - 1 else len(all_chunks)
-        shard_path = os.path.join(output_dir, f"shard_{i:03d}.txt")
+        start = i * per_shard
+        end = start + per_shard if i < num_shards - 1 else len(chunks)
+        path = os.path.join(out_dir, f"shard_{i:03d}.txt")
 
-        with open(shard_path, "w", encoding="utf-8") as f:
-            for chunk in all_chunks[start:end]:
-                f.write(chunk + "\n")
+        with open(path, "w", encoding="utf-8") as f:
+            for c in chunks[start:end]:
+                f.write(c + "\n")
 
-        log.info(f"Shard {i}: {end - start} chunks -> {shard_path}")
-
-    log.info("Preprocessing complete")
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/config.yaml")
-    parser.add_argument("--input", default="data/raw")
-    parser.add_argument("--output", default="data/shards")
-    args = parser.parse_args()
-
-    cfg = load_config(args.config)
-    num_shards = cfg["data"]["num_shards"]
-    process_raw_files(args.input, args.output, num_shards)
+        logger.info(f"shard {i}: {end - start} chunk -> {path}")
 
 
 if __name__ == "__main__":
-    main()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--config", default="configs/config.yaml")
+    ap.add_argument("--input", default="data/raw")
+    ap.add_argument("--output", default="data/shards")
+    args = ap.parse_args()
+
+    cfg = get_config(args.config)
+    preprocess(args.input, args.output, cfg["data"]["num_shards"])

@@ -1,12 +1,12 @@
 import argparse
 import json
-import logging
 import random
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-log = logging.getLogger(__name__)
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
+logger = logging.getLogger(__name__)
 
-TEMPLATES = {
+QA_BANK = {
     "working_hours": {
         "contexts": [
             "Working hours: 9:00-18:00, Monday to Friday",
@@ -139,7 +139,7 @@ TEMPLATES = {
             "Can I pay at a terminal?",
         ],
     },
-    "technical_support": {
+    "tech_support": {
         "contexts": [
             "Technical support: +998 71 200 00 02, available 24/7",
             "For internet issues: restart your router, wait 5 minutes, then call support",
@@ -173,77 +173,74 @@ TEMPLATES = {
     },
 }
 
+UNANSWERABLE = [
+    "What is the CEO's birthday?",
+    "Do you sell smartphones?",
+    "What color is the office building?",
+    "Can I buy a laptop from you?",
+    "What is the WiFi password?",
+    "Do you have parking?",
+    "What is the dress code?",
+    "Do you serve coffee at the office?",
+    "What programming languages do your developers use?",
+    "How many employees do you have?",
+    "What's the company revenue?",
+    "Who founded the company?",
+    "Do you sponsor any sports teams?",
+    "What operating system do your servers use?",
+    "Can I get a tour of the data center?",
+]
 
-def generate_answer(question, context):
+
+def make_answer(question, context):
     return f"Based on our information: {context}"
 
 
-def generate_pairs(num_pairs=1000):
-    pairs = []
-    categories = list(TEMPLATES.keys())
+def generate(n=1000):
+    data = []
+    cats = list(QA_BANK.keys())
 
-    while len(pairs) < num_pairs:
-        cat = random.choice(categories)
-        template = TEMPLATES[cat]
-        question = random.choice(template["questions"])
-        context = random.choice(template["contexts"])
-        answer = generate_answer(question, context)
+    while len(data) < n:
+        cat = random.choice(cats)
+        q = random.choice(QA_BANK[cat]["questions"])
+        ctx = random.choice(QA_BANK[cat]["contexts"])
 
-        pairs.append({
-            "question": question,
-            "context": context,
-            "answer": answer,
+        data.append({
+            "question": q,
+            "context": ctx,
+            "answer": make_answer(q, ctx),
             "category": cat,
         })
 
-    no_info_questions = [
-        "What is the CEO's birthday?",
-        "Do you sell smartphones?",
-        "What color is the office building?",
-        "Can I buy a laptop from you?",
-        "What is the WiFi password?",
-        "Do you have parking?",
-        "What is the dress code?",
-        "Do you serve coffee at the office?",
-        "What programming languages do your developers use?",
-        "How many employees do you have?",
-    ]
-
-    for q in no_info_questions:
-        pairs.append({
+    for q in UNANSWERABLE:
+        data.append({
             "question": q,
             "context": "",
             "answer": "I don't have enough information to answer this question.",
             "category": "no_info",
         })
 
-    random.shuffle(pairs)
-    return pairs
+    random.shuffle(data)
+    return data
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--output", default="data/synthetic_qa.json")
-    parser.add_argument("--num-pairs", type=int, default=1000)
-    parser.add_argument("--seed", type=int, default=42)
-    args = parser.parse_args()
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--output", default="data/synthetic_qa.json")
+    ap.add_argument("--num-pairs", type=int, default=1000)
+    ap.add_argument("--seed", type=int, default=42)
+    args = ap.parse_args()
 
     random.seed(args.seed)
-    pairs = generate_pairs(args.num_pairs)
+    pairs = generate(args.num_pairs)
 
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(pairs, f, indent=2, ensure_ascii=False)
 
-    log.info(f"Generated {len(pairs)} QA pairs -> {args.output}")
+    logger.info(f"{len(pairs)} ta QA juftlik yaratildi -> {args.output}")
 
-    category_counts = {}
+    stats = {}
     for p in pairs:
-        cat = p["category"]
-        category_counts[cat] = category_counts.get(cat, 0) + 1
-
-    for cat, count in sorted(category_counts.items()):
-        log.info(f"  {cat}: {count}")
-
-
-if __name__ == "__main__":
-    main()
+        stats[p["category"]] = stats.get(p["category"], 0) + 1
+    for k, v in sorted(stats.items()):
+        logger.info(f"  {k}: {v}")

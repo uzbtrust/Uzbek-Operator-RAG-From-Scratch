@@ -3,120 +3,99 @@ import torch.nn as nn
 from model.attention import MultiHeadAttention
 
 
-class FeedForward(nn.Module):
+class FFN(nn.Module):
 
-    def __init__(self, hidden_size, intermediate_size, dropout=0.1):
+    def __init__(self, d_model, d_ff, dropout=0.1):
         super().__init__()
-        self.fc1 = nn.Linear(hidden_size, intermediate_size)
-        self.fc2 = nn.Linear(intermediate_size, hidden_size)
+        self.w1 = nn.Linear(d_model, d_ff)
+        self.w2 = nn.Linear(d_ff, d_model)
         self.act = nn.GELU()
-        self.dropout = nn.Dropout(dropout)
+        self.drop = nn.Dropout(dropout)
 
     def forward(self, x):
-        x = self.fc1(x)
-        x = self.act(x)
-        x = self.dropout(x)
-        x = self.fc2(x)
-        x = self.dropout(x)
-        return x
+        return self.drop(self.w2(self.drop(self.act(self.w1(x)))))
 
 
-class TransformerBlock(nn.Module):
+class EncoderLayer(nn.Module):
 
-    def __init__(self, hidden_size, num_heads, intermediate_size, dropout=0.1):
+    def __init__(self, d_model, n_heads, d_ff, dropout=0.1):
         super().__init__()
-        self.attention = MultiHeadAttention(hidden_size, num_heads, dropout)
-        self.ffn = FeedForward(hidden_size, intermediate_size, dropout)
-        self.norm1 = nn.LayerNorm(hidden_size)
-        self.norm2 = nn.LayerNorm(hidden_size)
+        self.attn = MultiHeadAttention(d_model, n_heads, dropout)
+        self.ffn = FFN(d_model, d_ff, dropout)
+        self.ln1 = nn.LayerNorm(d_model)
+        self.ln2 = nn.LayerNorm(d_model)
 
     def forward(self, x, mask=None):
-        residual = x
-        x = self.norm1(x)
-        x = self.attention(x, mask)
-        x = x + residual
-
-        residual = x
-        x = self.norm2(x)
-        x = self.ffn(x)
-        x = x + residual
-
+        x = x + self.attn(self.ln1(x), mask)
+        x = x + self.ffn(self.ln2(x))
         return x
 
 
 class TransformerEncoder(nn.Module):
 
-    def __init__(self, vocab_size, hidden_size, num_layers, num_heads,
-                 intermediate_size, max_seq_len, dropout=0.1, gradient_checkpointing=False):
+    def __init__(self, vocab_size, d_model, n_layers, n_heads,
+                 d_ff, max_len, dropout=0.1, use_checkpoint=False):
         super().__init__()
+        self.d_model = d_model
+        self.use_checkpoint = use_checkpoint
 
-        self.hidden_size = hidden_size
-        self.gradient_checkpointing = gradient_checkpointing
-
-        self.token_embedding = nn.Embedding(vocab_size, hidden_size, padding_idx=0)
-        self.position_embedding = nn.Embedding(max_seq_len, hidden_size)
-
-        self.embed_dropout = nn.Dropout(dropout)
-        self.embed_norm = nn.LayerNorm(hidden_size)
+        self.tok_emb = nn.Embedding(vocab_size, d_model, padding_idx=0)
+        self.pos_emb = nn.Embedding(max_len, d_model)
+        self.emb_drop = nn.Dropout(dropout)
+        self.emb_norm = nn.LayerNorm(d_model)
 
         self.layers = nn.ModuleList([
-            TransformerBlock(hidden_size, num_heads, intermediate_size, dropout)
-            for _ in range(num_layers)
+            EncoderLayer(d_model, n_heads, d_ff, dropout)
+            for _ in range(n_layers)
         ])
+        self.out_norm = nn.LayerNorm(d_model)
+        self._init_params()
 
-        self.final_norm = nn.LayerNorm(hidden_size)
-        self._init_weights()
-
-    def _init_weights(self):
-        for module in self.modules():
-            if isinstance(module, nn.Linear):
-                nn.init.normal_(module.weight, mean=0.0, std=0.02)
-                if module.bias is not None:
-                    nn.init.zeros_(module.bias)
-            elif isinstance(module, nn.Embedding):
-                nn.init.normal_(module.weight, mean=0.0, std=0.02)
-                if module.padding_idx is not None:
-                    nn.init.zeros_(module.weight[module.padding_idx])
-            elif isinstance(module, nn.LayerNorm):
-                nn.init.ones_(module.weight)
-                nn.init.zeros_(module.bias)
+    def _init_params(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight, std=0.02)
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.Embedding):
+                nn.init.normal_(m.weight, std=0.02)
+                if m.padding_idx is not None:
+                    nn.init.zeros_(m.weight[m.padding_idx])
+            elif isinstance(m, nn.LayerNorm):
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
 
     def forward(self, input_ids, attention_mask=None):
-        batch, seq_len = input_ids.shape
-        device = input_ids.device
+        B, T = input_ids.shape
+        pos = torch.arange(T, device=input_ids.device).unsqueeze(0).expand(B, -1)
 
-        positions = torch.arange(seq_len, device=device).unsqueeze(0).expand(batch, -1)
-
-        x = self.token_embedding(input_ids) + self.position_embedding(positions)
-        x = self.embed_norm(x)
-        x = self.embed_dropout(x)
+        x = self.tok_emb(input_ids) + self.pos_emb(pos)
+        x = self.emb_norm(x)
+        x = self.emb_drop(x)
 
         for layer in self.layers:
-            if self.gradient_checkpointing and self.training:
+            if self.use_checkpoint and self.training:
                 x = torch.utils.checkpoint.checkpoint(layer, x, attention_mask, use_reentrant=False)
             else:
                 x = layer(x, attention_mask)
 
-        x = self.final_norm(x)
-        return x
+        return self.out_norm(x)
 
-    def count_parameters(self):
+    def num_params(self):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
 
-def build_encoder_from_config(cfg):
+def from_config(cfg):
     m = cfg["model"]
-    gc = cfg.get("pretraining", {}).get("gradient_checkpointing", False)
+    ckpt = cfg.get("pretraining", {}).get("gradient_checkpointing", False)
 
-    encoder = TransformerEncoder(
+    return TransformerEncoder(
         vocab_size=m["vocab_size"],
-        hidden_size=m["hidden_size"],
-        num_layers=m["num_layers"],
-        num_heads=m["num_heads"],
-        intermediate_size=m["intermediate_size"],
-        max_seq_len=m["max_seq_len"],
+        d_model=m["hidden_size"],
+        n_layers=m["num_layers"],
+        n_heads=m["num_heads"],
+        d_ff=m["intermediate_size"],
+        max_len=m["max_seq_len"],
         dropout=m["dropout"],
-        gradient_checkpointing=gc,
+        use_checkpoint=ckpt,
     )
-
-    return encoder
