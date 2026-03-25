@@ -13,11 +13,6 @@ Operator chatbot uchun noldan yozilgan RAG (Retrieval-Augmented Generation) tizi
 ## O'rnatish
 
 ```bash
-# venv yaratish va kutubxonalarni o'rnatish
-chmod +x setup.sh
-./setup.sh
-
-# yoki qo'lda
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
