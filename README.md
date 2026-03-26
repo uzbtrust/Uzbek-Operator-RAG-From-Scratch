@@ -39,8 +39,50 @@ python data/synthetic_qa_generator.py
 
 ### Phase 3 — Pre-training
 
+Masked Language Modeling bilan pre-training. Kaggle T4 GPU da 3 ta parallel sessiyada ishga tushiriladi.
+
 ```bash
+# har bir Kaggle sessiyasida bitta shard
 python training/pretrain.py --shard-id 0
+python training/pretrain.py --shard-id 1
+python training/pretrain.py --shard-id 2
+
+# 3 ta checkpointni birlashtirish
+python training/merge_checkpoints.py \
+    --checkpoints checkpoints/pretrain/shard0_final.pt \
+                   checkpoints/pretrain/shard1_final.pt \
+                   checkpoints/pretrain/shard2_final.pt \
+    --output checkpoints/pretrain/merged_model.pt
+```
+
+**Training konfiguratsiya:**
+
+| Parametr | Qiymat |
+|---|---|
+| Batch size | 32 |
+| Learning rate | 1e-4 |
+| Warmup steps | 10,000 |
+| Max steps | 500,000 |
+| MLM probability | 15% |
+| Precision | fp16 (mixed) |
+| Optimizer | AdamW |
+| Scheduler | Linear warmup + cosine decay |
+| Gradient clipping | 1.0 |
+
+**Kutilgan natijalar:**
+
+```
+MLM Loss curve (taxminiy):
+
+Step    |  Loss
+--------|-------
+1,000   |  8.2
+5,000   |  5.4
+10,000  |  4.1
+50,000  |  3.2
+100,000 |  2.7
+200,000 |  2.3
+500,000 |  1.9
 ```
 
 ### Phase 4 — Fine-tuning (SimCSE)
