@@ -15,7 +15,8 @@ def get_config(path="configs/config.yaml"):
 
 def wiki_stream(cfg):
     logger.info("wikipedia yuklanmoqda...")
-    ds = load_dataset("wikipedia", cfg["data"]["wiki_subset"], split="train", streaming=True)
+    subset = cfg["data"]["wiki_subset"]
+    ds = load_dataset("wikimedia/wikipedia", subset, split="train", streaming=True)
     for row in ds:
         txt = row.get("text", "")
         if len(txt) > 100:

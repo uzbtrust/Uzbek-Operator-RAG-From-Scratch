@@ -54,7 +54,7 @@ generator:
   load_in_8bit: true
 
 data:
-  wiki_subset: "20220301.en"
+  wiki_subset: "20231101.en"
   bookcorpus_name: "bookcorpus/bookcorpus"
   shard_dir: "data/shards"
   num_shards: 3
