@@ -10,12 +10,45 @@ Operator chatbot uchun noldan yozilgan RAG (Retrieval-Augmented Generation) tizi
 - Generator: Qwen2.5-7B-Instruct (8-bit kvantizatsiya)
 - Confidence-based fallback (javob topilmasa aytadi)
 
-## O'rnatish
+## O'rnatish (lokal)
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+```
+
+## Kaggle'da ishga tushirish
+
+Kaggle Notebook'da **birinchi cell** shu bo'lsin — boshqa hech narsa yo'q:
+
+```python
+!git clone https://github.com/uzbtrust/Uzbek-Operator-RAG-From-Scratch.git
+import os
+os.chdir("Uzbek-Operator-RAG-From-Scratch")
+!pip install -q datasets tokenizers pyyaml
+```
+
+Keyin alohida cell'larda:
+
+```python
+# 1. Ma'lumot yuklab olish
+!python data/download_corpus.py --max-docs 200000
+```
+
+```python
+# 2. Tozalash va shard qilish
+!python data/preprocess.py
+```
+
+```python
+# 3. Tokenizer o'qitish
+!python tokenizer/train_tokenizer.py
+```
+
+```python
+# 4. Pre-training (shard-id: 0, 1 yoki 2)
+!python training/pretrain.py --shard-id 0
 ```
 
 ## Ishlatish
