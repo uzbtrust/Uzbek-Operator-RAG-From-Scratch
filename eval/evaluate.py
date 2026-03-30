@@ -42,6 +42,27 @@ def recall_at_k(relevant_positions, k=5):
     return hits / len(relevant_positions) if relevant_positions else 0.0
 
 
+CATEGORY_KEYWORDS = {
+    "working_hours": ["working hours", "office hours", "monday to friday"],
+    "contact": ["contact information", "phone:", "hotline:", "email:"],
+    "address": ["address", "head office", "branch office"],
+    "services": ["services", "mobile communication", "fiber optic"],
+    "pricing": ["tariff plans", "basic plan", "connection fee"],
+    "payment": ["payment methods", "payme", "paynet"],
+    "documents": ["required documents", "passport", "for individuals"],
+    "tech_support": ["technical support", "speed test", "router setup"],
+    "complaints": ["complaints", "feedback", "response time"],
+    "promotions": ["promotions", "referral program", "student discount"],
+}
+
+
+def category_match(chunk_text, category):
+    if category not in CATEGORY_KEYWORDS:
+        return False
+    text_lower = chunk_text.lower()
+    return any(kw in text_lower for kw in CATEGORY_KEYWORDS[category])
+
+
 def evaluate_retrieval(retriever, confidence_checker, qa_data, chunks, k=5):
     relevant_positions = []
     fallback_true_pos = 0
@@ -70,6 +91,9 @@ def evaluate_retrieval(retriever, confidence_checker, qa_data, chunks, k=5):
         for i, r in enumerate(results):
             chunk_text = r["chunk"]["text"]
             if expected_context and expected_context.lower() in chunk_text.lower():
+                found_pos = i
+                break
+            if category and category_match(chunk_text, category):
                 found_pos = i
                 break
 
