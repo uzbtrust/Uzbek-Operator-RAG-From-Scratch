@@ -62,21 +62,31 @@ Operator chatbot uchun noldan qurilgan RAG (Retrieval-Augmented Generation) tizi
 | NDCG@5 | **0.985** |
 | Recall@5 | **0.985** |
 
+![Retrieval Metrics](eval/plots/retrieval_metrics.png)
+
+### Training Curves
+
+| Bosqich | Metrika | Qiymat |
+|---------|---------|--------|
+| Pre-training (MLM) | Loss | 9.78 → 2.74 (132K step) |
+| SimCSE fine-tuning | Loss | 3.99 → 2.03 (5 epoch) |
+| SimCSE fine-tuning | Accuracy | 18.1% (random baseline 1.6%) |
+
+![Pre-training Loss](eval/plots/pretrain_loss.png)
+
+![SimCSE Fine-tuning](eval/plots/simcse_loss.png)
+
+### Test Set Taqsimoti
+
+![Category Distribution](eval/plots/category_distribution.png)
+
 ### Confidence (threshold = 0.20)
 
 | Savol turi | Natija |
 |------------|--------|
-| Valid savollar (1000 ta) | score 0.20+ : javob beradi |
-| Off-domain ("Do you sell airplanes?") | score < 0.20 : fallback |
-| Off-domain ("Capital of France?") | score < 0.20 : fallback |
-
-### Training
-
-| Bosqich | Metrika | Qiymat |
-|---------|---------|--------|
-| Pre-training (MLM) | Loss | 9.78 -> 2.74 (132K step) |
-| SimCSE fine-tuning | Loss | 3.99 -> 2.03 (5 epoch) |
-| SimCSE fine-tuning | Accuracy | 18.1% (random baseline 1.6%) |
+| Valid savollar (1000 ta) | score ≥ 0.20 → javob beradi |
+| Off-domain ("Do you sell airplanes?") | score 0.179 → fallback |
+| Off-domain ("Capital of France?") | score 0.171 → fallback |
 
 ## Loyiha tuzilmasi
 

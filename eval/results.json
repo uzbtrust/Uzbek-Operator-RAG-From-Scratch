@@ -1,0 +1,20 @@
+{
+  "retrieval": {
+    "mrr@5": 0.985,
+    "ndcg@5": 0.985,
+    "recall@5": 0.985
+  },
+  "fallback": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "true_positives": 0,
+    "false_positives": 0,
+    "false_negatives": 15
+  },
+  "config": {
+    "knowledge_file": "data/sample_operator.txt",
+    "qa_file": "data/synthetic_qa.json",
+    "num_chunks": 13,
+    "num_questions": 1015
+  }
+}
