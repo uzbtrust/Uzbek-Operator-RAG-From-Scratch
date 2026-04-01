@@ -206,12 +206,15 @@ python ui/app.py --knowledge data/sample_operator.txt
 
 Gradio interfeys `localhost:7860` da ochiladi. `.txt` fayl yuklang va savol bering.
 
-## Kaggle Notebook
+## Kaggle Notebooks
 
 Kaggle T4 x2 da ishga tushirish uchun `notebooks/` papkasidagi notebooklardan foydalaning:
 
-1. `pretrain_kaggle.ipynb` — Phase 3 (MLM pre-training, 12 soat)
-2. `finetune_simcse_kaggle.ipynb` — Phase 4 (SimCSE, 174 sekund)
+| Notebook | Bosqich | Vaqt |
+|----------|---------|------|
+| `pretrain_kaggle_real.ipynb` | Phase 3 — MLM pre-training | ~12 soat |
+| `finetune_simcse_kaggle.ipynb` | Phase 4 — SimCSE fine-tuning | 174 sekund |
+| `evaluate_kaggle.ipynb` | Phase 5 — Evaluation | ~10 sekund |
 
 Har bir notebook o'z ichida `git clone` + setup + training qiladi.
 
@@ -231,6 +234,21 @@ generator:
   max_new_tokens: 256
   temperature: 0.1
   load_in_8bit: true
+```
+
+## Tayyor Modellar (Kaggle)
+
+O'qitilgan modellarni Kaggle dan to'g'ridan-to'g'ri yuklab olish mumkin:
+
+| Model | Tavsif | Havola |
+|-------|--------|--------|
+| Pre-trained Encoder | MLM bilan o'qitilgan, 42.1M params, loss 2.74 | [kaggle.com/models/uzbtrust/uzbek-operator-rag-pretrained](https://www.kaggle.com/models/uzbtrust/uzbek-operator-rag-pretrained) |
+| SimCSE Fine-tuned | Contrastive learning, loss 2.03, MRR 0.985 | [kaggle.com/models/uzbtrust/uzbek-operator-rag-simcse](https://www.kaggle.com/models/uzbtrust/uzbek-operator-rag-simcse) |
+
+Yuklab olingandan keyin `checkpoints/simcse/best_model.pt` ga joylashtiring va ishga tushiring:
+
+```bash
+python ui/app.py --knowledge data/sample_operator.txt
 ```
 
 ## Qoidalar
